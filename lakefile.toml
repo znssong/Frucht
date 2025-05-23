@@ -1,0 +1,13 @@
+name = "Frucht"
+version = "0.1.0"
+defaultTargets = ["Frucht"]
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "master"
+
+[[lean_lib]]
+name = "Frucht"
+leanOptions = {autoImplicit = true}
+
