@@ -1,5 +1,7 @@
 import Frucht.ClassicalReplacements
 
+universe u v
+
 open Function Relation
 
 namespace ReflTransGen
@@ -23,7 +25,7 @@ variable {α β} {r : α → α → Prop} {p : β → β → Prop} {a b : α}
     exact .head (h _ _ hac) (ih hc.symm)
 
 @[classical] lemma liftHom
-    {F} [FunLike F α β] [RelHomClass F r s] (f : F) (hab : ReflTransGen r a b) :
+    {s F} [FunLike F α β] [RelHomClass F r s] (f : F) (hab : ReflTransGen r a b) :
     ReflTransGen s (f a) (f b) :=
   ReflTransGen.lift f (fun _ _ => map_rel _) hab
 
@@ -34,7 +36,7 @@ namespace SimpleGraph
 @[classical] theorem pathGraph_rigid
     {n : ℕ} [NeZero n] (f : pathGraph n ≃g pathGraph n) (hf : f 0 = 0) : f = .refl := by
   ext ⟨i, hi⟩
-  simp only [← Fin.ext_iff, RelIso.refl_apply]
+  simp only [RelIso.refl_apply]
   induction' i using Nat.strongRec with i ih
   by_cases i_zero : i = 0
   · cases i_zero
@@ -82,10 +84,12 @@ variable {α : Type u} {β : Type v} {G : SimpleGraph α} {H : SimpleGraph β} (
   left_inv := by
     simp [LeftInverse]
     intro x
+    erw [Walk.map_map]
     convert_to (Walk.map Hom.id x).copy rfl rfl = x using 2 <;> (try congr 1; simp)
   right_inv := by
     simp [RightInverse, LeftInverse]
     intro x
+    erw [Walk.map_map]
     convert_to (Walk.map Hom.id x).copy rfl rfl = x using 2 <;> (try congr 1; simp)
 
 @[classical] lemma Iso.map_neighborSet (u : α) :
@@ -94,7 +98,6 @@ variable {α : Type u} {β : Type v} {G : SimpleGraph α} {H : SimpleGraph β} (
     neighborSet, neighborSet, ← Equiv.setOf_apply_symm_eq_image_setOf,
     show (f.toEquiv.symm : _ → _) = f.symm from rfl, RelIso.coe_fn_toEquiv]
   congr 1 with y'
-  simp only [Set.mem_setOf_eq]
   conv_lhs => rw [show u = f.symm (f u) by simp, map_adj_iff]
 
 end SimpleGraph
@@ -107,13 +110,13 @@ end SimpleGraph
     extends RelIso G.r H.r where
   map_point' : toRelIso G.p = H.p
 
-infix:25 " ≃a " => PointedGraphIso
+infix:25 " ≃· " => PointedGraphIso
 
 namespace PointedGraphIso
 
 variable {α β γ : Type*} {G : PointedGraph α} {H : PointedGraph β} {I : PointedGraph γ}
 
-@[classical] instance : EquivLike (G ≃a H) α β where
+@[classical] instance : EquivLike (G ≃· H) α β where
   coe x := x.toRelIso
   inv x := x.toRelIso.symm
   left_inv := by simp [Function.LeftInverse]
@@ -121,48 +124,47 @@ variable {α β γ : Type*} {G : PointedGraph α} {H : PointedGraph β} {I : Poi
   coe_injective' := fun
     | ⟨e₁, _⟩, ⟨e₂, _⟩, h, _ => by simpa using h
 
-instance : RelHomClass (G ≃a H) G.r H.r where
+instance : RelHomClass (G ≃· H) G.r H.r where
   map_rel f _ _ := Iff.mpr f.map_rel_iff'
 
-@[simp]
-lemma coe_fn_toEquiv (f : G ≃a H) : (f.toRelIso : α → β) = f :=
+@[simp] lemma coe_fn_toEquiv (f : G ≃· H) : (f.toRelIso : α → β) = f :=
   rfl
 
-@[classical] lemma map_point (f : G ≃a H) : f G.p = H.p := f.map_point'
-@[classical] lemma map_rel_iff (f : G ≃a H) {a b} :
+@[classical] lemma map_point (f : G ≃· H) : f G.p = H.p := f.map_point'
+@[classical] lemma map_rel_iff (f : G ≃· H) {a b} :
     H.r (f a) (f b) ↔ G.r a b := f.toRelIso.map_rel_iff
 
-@[classical, ext] lemma ext ⦃f g : G ≃a H⦄ (h : ∀ x, f x = g x) : f = g :=
+@[classical, ext] lemma ext ⦃f g : G ≃· H⦄ (h : ∀ x, f x = g x) : f = g :=
   DFunLike.ext f g h
 
-@[classical, refl] def refl : G ≃a G := ⟨.refl G.r, by simp⟩
-@[classical, symm] def symm (f : G ≃a H) : H ≃a G :=
+@[classical, refl] def refl : G ≃· G := ⟨.refl G.r, by simp⟩
+@[classical, symm] def symm (f : G ≃· H) : H ≃· G :=
   ⟨f.toRelIso.symm, by apply_fun f.toRelIso; simpa using f.map_point'.symm⟩
-@[classical, trans] def trans (f : G ≃a H) (g : H ≃a I) : G ≃a I :=
+@[classical, trans] def trans (f : G ≃· H) (g : H ≃· I) : G ≃· I :=
   ⟨f.toRelIso.trans g.toRelIso, by simp [f.map_point', g.map_point']⟩
 
 instance : Trans (@PointedGraphIso α β) (@PointedGraphIso β γ) PointedGraphIso where
   trans := trans
 
-@[simp] lemma apply_symm_apply (f : G ≃a H) (x : β) : f (f.symm x) = x :=
+@[simp] lemma apply_symm_apply (f : G ≃· H) (x : β) : f (f.symm x) = x :=
   f.toEquiv.apply_symm_apply x
 
-@[simp] lemma symm_apply_apply (f : G ≃a H) (x : α) : f.symm (f x) = x :=
+@[simp] lemma symm_apply_apply (f : G ≃· H) (x : α) : f.symm (f x) = x :=
   f.toEquiv.symm_apply_apply x
 
 end PointedGraphIso
 
 namespace PointedGraph
 
-variable {α : Type u} {β : Type u} {G : PointedGraph α} {H : PointedGraph β} (f : G ≃a H)
+variable {α : Type u} {β : Type u} {G : PointedGraph α} {H : PointedGraph β} (f : G ≃· H)
 
-@[classical] abbrev Rigid := Subsingleton (G ≃a G)
+@[classical] abbrev Rigid := Subsingleton (G ≃· G)
 
 @[classical] def induce (x : α) : PointedGraph {y // ReflTransGen G.r x y} where
   p := ⟨x, .refl⟩
   r := fun x y => G.r x.val y.val
 
-@[classical] def induceIso (x : α) : G.induce x ≃a H.induce (f x) where
+@[classical] def induceIso (x : α) : G.induce x ≃· H.induce (f x) where
   toFun := fun ⟨y, hy⟩ => ⟨f y, ReflTransGen.liftHom f hy⟩
   invFun := fun ⟨y, hy⟩ => ⟨f.symm y, by simpa using ReflTransGen.liftHom f.symm hy⟩
   left_inv := by simp [LeftInverse]
@@ -171,7 +173,7 @@ variable {α : Type u} {β : Type u} {G : PointedGraph α} {H : PointedGraph β}
     simp only [PointedGraph.induce, Equiv.coe_fn_mk, Subtype.forall]
     intro y hy z hz
     apply RelIso.map_rel_iff
-  map_point' := by simp [PointedGraph.induce]
+  map_point' := by simp [PointedGraph.induce]; congr 1
 
 end PointedGraph
 
@@ -298,7 +300,7 @@ def cayleyIso (G : Type*) [Group G] : (cayley G ≃c cayley G) ≃* G where
     invFun := fun y => x⁻¹ * y
     left_inv := by simp [LeftInverse]
     right_inv := by simp [Function.RightInverse, LeftInverse]
-    map_color' := by intro a b; simp [cayley]; group
+    map_color' := by intro a b; simp [cayley]
   }
   left_inv := by
     intro f

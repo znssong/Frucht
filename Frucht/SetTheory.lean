@@ -181,7 +181,7 @@ variable (S : Set (Type u)) [hS : Small.{u} S]
     (fun {a b} ha hb => by simp only [← hb] at ha; exact ext ha)
 
 @[classical, simp] lemma mem_collectSet : x ∈ collectSet S ↔ x ∈ S := by
-  simp only [collectSet, mem_bigUnion]
+  simp only [collectSet]
   generalize_proofs h h'
   exact h.chooseUnique_spec h' x
 
@@ -242,14 +242,12 @@ end collectSet
   haveI : Small (lowerBounds {x, y}) := by
     apply small_subset (s := Set.range ((↑) : powerset x → _))
     intro w hw
-    simp only [lowerBounds_insert, lowerBounds_singleton, Set.Iic_inter_Iic, Set.mem_Iic,
-      le_inf_iff] at hw
+    simp only [lowerBounds_insert, lowerBounds_singleton] at hw
     change w ∈ powerset x
     rw [mem_powerset]
     exact hw.1
   rw [sSup_of_small]
-  simp only [lowerBounds_insert, lowerBounds_singleton, Set.Iic_inter_Iic, mem_bigUnion,
-    mem_collectSet, Set.mem_Iic, le_inf_iff, mem_inter]
+  simp only [lowerBounds_insert, lowerBounds_singleton, mem_bigUnion, mem_collectSet, mem_inter]
   refine ⟨fun ⟨w, ⟨hx, hy⟩, hz⟩ => ?_, fun ⟨hx, hy⟩ => ?_⟩
   · exact ⟨hx _ hz, hy _ hz⟩
   · refine ⟨x ∩ y, ?_⟩
@@ -289,7 +287,7 @@ end collectSet
 @[classical] lemma sub_trcl : x ⊆ trcl x := by
   change trcl_step x 0 ≤ trcl x
   apply le_ciSup
-  rw [bddAbove_iff]
+  erw [bddAbove_iff]
   apply small_range
 
 @[classical] lemma trcl_singleton_contains_self : x ∈ trcl {x} :=

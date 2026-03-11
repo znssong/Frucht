@@ -3,6 +3,8 @@ import Frucht.Classical
 
 noncomputable section
 
+universe u v w
+
 open Setoid Function
 
 attribute [restrict Classical.choice 2] Classical.uniqueChoice
@@ -64,7 +66,7 @@ def ofInjective' {α β} (f : α → β) (hf : Injective f) : α ≃ Set.range f
       simpa [Subtype.ext_iff] using ⟨y, hy⟩)
 
 @[classical, replace punitOfNonemptyOfSubsingleton]
-def punitOfNonemptyOfSubsingleton' {α : Sort u} [h : Nonempty α] [Subsingleton α] :
+def punitOfNonemptyOfSubsingleton' {α} [h : Nonempty α] [Subsingleton α] :
     α ≃ PUnit.{v} := by
   elim_choice Equiv.punitOfNonemptyOfSubsingleton.{u, v} (α := α) unfolding Nonempty.some
   infer_instance
@@ -160,10 +162,6 @@ attribute [-instance] Set.instCompleteAtomicBooleanAlgebra
 
 namespace CompleteAtomicBooleanAlgebra
 
-@[classical, restrict toCompleteLattice -1 1]
-instance toCompleteLattice' {α} [self : CompleteLattice α] :
-    CompleteLattice α := self
-
 @[classical, restrict toCompleteBooleanAlgebra -1 1]
 instance toCompleteBooleanAlgebra' {α} [self : CompleteBooleanAlgebra α] :
     CompleteBooleanAlgebra α := self
@@ -175,45 +173,64 @@ end CompleteAtomicBooleanAlgebra
     le_sSup := fun _ t t_in _ a_in => ⟨t, t_in, a_in⟩
     sSup_le := fun _ _ h _ ⟨t', ⟨t'_in, a_in⟩⟩ => h t' t'_in a_in
     le_sInf := fun _ _ h _ a_in t' t'_in => h t' t'_in a_in
-    sInf_le := fun _ _ t_in _ h => h _ t_in
-    inf_sSup_le_iSup_inf := by intro a s x; simp
-    iInf_sup_le_sup_sInf := by intro a s x; simp [forall_or_left] }
+    sInf_le := fun _ _ t_in _ h => h _ t_in }
 
 namespace Function
 
 open Classical
 
 @[classical, restrict invFun -2 2 4]
-def invFun' {α : Sort u} {β : Sort v} [Inhabited α] (f : α → β) (hf : Injective f) : β → α :=
+def invFun' {α β : Sort*} [Inhabited α] (f : α → β) (hf : Injective f) : β → α :=
   fun b => if h : ∃ x, f x = b then h.chooseUnique (fun h h' => hf (h' ▸ h)) else default
 
 @[classical, restrict leftInverse_invFun -2 2]
-def leftInverse_invFun' {α : Sort u} {β : Sort v} [Inhabited α] (f : α → β) (hf : Injective f) :
-    LeftInverse (invFun' f hf) f := by
+lemma leftInverse_invFun' {α β : Sort*} [Inhabited α] {f : α → β}
+    (hf : Injective f) : LeftInverse (invFun' f hf) f := by
   intro x
-  simp [LeftInverse, invFun']
+  simp only [invFun', exists_apply_eq_apply, ↓reduceDIte]
   generalize_proofs h h'
   exact hf (h.chooseUnique_spec h')
 
-set_option maxHeartbeats 500000 in
-@[classical]
-theorem Embedding.schroeder_bernstein_aux
-    {α : Type u} {β : Type v} [Inhabited β] {f : α → β} {g : β → α} (hf : Injective f)
-    (hg : Injective g) : ∃ h : α → β, Bijective h := by
-  elim_choice Embedding.schroeder_bernstein hf hg <;>
-    first | infer_instance | assumption
+@[classical, restrict invFun_eq -2 2 5]
+lemma invFun_eq' {α β : Sort*} [Inhabited α] {f : α → β} {b : β}
+    (hf : Injective f) (hb : ∃ a, f a = b) : f (invFun' f hf b) = b := by
+  simp only [invFun', hb, ↓reduceDIte]
+  obtain ⟨a, ha⟩ := hb
+  generalize_proofs hb eq
+  rw [hb.chooseUnique_spec eq]
 
-@[classical, replace Embedding.schroeder_bernstein]
-theorem Embedding.schroeder_bernstein'
-    {α : Type u} {β : Type v} {f : α → β} {g : β → α} (hf : Injective f)
-    (hg : Injective g) : ∃ h : α → β, Bijective h := by
+@[classical, replace Embedding.setValue]
+def Embedding.setValue' {α β : Sort*} (f : α ↪ β) (a : α) (b : β)
+    [∀ a', Decidable (a' = a)] [∀ a', Decidable (f a' = b)] : α ↪ β :=
+  ⟨fun a' => if a' = a then b else if f a' = b then f a else f a', by
+    intro x y h
+    simp only at h
+    split_ifs at h <;> try simp_all
+    · rename_i h₁ h₂ h₃
+      rw [← h, f.apply_eq_iff_eq] at h₂
+      exact h₁ h₂
+    · rename_i h₁ h₂ h₃
+      rwa [← h₃, f.apply_eq_iff_eq] at h₁⟩
+
+@[classical, replace Embedding.setValue_eq]
+def Embedding.setValue_eq' {α β : Sort*} (f : α ↪ β) (a : α) (b : β)
+    [∀ a', Decidable (a' = a)] [∀ a', Decidable (f a' = b)] : (f.setValue' a b) a = b := by
+  simp [setValue']
+
+@[classical, replace Embedding.schroeder_bernstein_of_rel]
+theorem Embedding.schroeder_bernstein_of_rel'
+    {α β : Type*} {f : α → β} {g : β → α} (hf : Function.Injective f)
+    (hg : Function.Injective g) (R : α → β → Prop) (hp₁ : ∀ a : α, R a (f a))
+    (hp₂ : ∀ b : β, R (g b) b) :
+    ∃ h : α → β, Bijective h ∧ ∀ a : α, R a (h a) := by
   by_cases em : IsEmpty β
   · have : IsEmpty α := f.isEmpty
-    exact ⟨_, ((Equiv.equivEmpty α).trans (Equiv.equivEmpty β).symm).bijective⟩
+    exact ⟨_, ((Equiv.equivEmpty α).trans (Equiv.equivEmpty β).symm).bijective, by simp⟩
   · simp only [not_isEmpty_iff] at em
     cases' em with x
     letI : Inhabited β := ⟨x⟩
-    exact schroeder_bernstein_aux hf hg
+    elim_choice Embedding.schroeder_bernstein_of_rel hf hg R hp₁ hp₂ <;>
+      first | infer_instance | assumption
 
 end Function
 
@@ -224,14 +241,13 @@ lemma mk_union_of_disjoint' {α} {S T : Set α} (H : Disjoint S T) : #(S ∪ T :
   elim_choice mk_union_of_disjoint H
 
 @[classical, replace nonempty_unique]
-lemma nonempty_unique' (α) [hα : Subsingleton α] [ne : Nonempty α] : Nonempty (Unique α) := by
+lemma nonempty_unique' {α} [hα : Subsingleton α] [ne : Nonempty α] : Nonempty (Unique α) := by
   obtain ⟨x⟩ := ne
   refine ⟨⟨⟨x⟩, fun y => hα.elim y x⟩⟩
 
 @[classical, replace mk_insert]
-theorem mk_insert' {α} {s : Set α} {a : α} (h : a ∉ s) :
-    #(insert a s : Set α) = #s + 1 := by
-  elim_choice mk_insert h <;> infer_instance
+theorem mk_insert' {α} {s : Set α} {a : α} (h : a ∉ s) : #(insert a s : Set α) = #s + 1 := by
+  elim_choice mk_insert h; infer_instance
 
 open Fintype in
 @[classical, replace mk_fintype]

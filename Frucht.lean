@@ -2,9 +2,8 @@ import Frucht.SetTheory
 import Frucht.Graphs
 
 noncomputable section
-set_option autoImplicit false
-
 universe u v
+
 open Function Relation Cardinal
 
 @[classical] def top (x : Type u) := castMem (trcl_singleton_contains_self (x := x))
@@ -14,13 +13,13 @@ open Function Relation Cardinal
   r := fun x y => (y : Type u) ∈ (x : Type u)
 
 @[classical] def FAFA₂On (M : Set (Type u)) :=
-  ∀ α ∈ M, ∀ β ∈ M, canonicalGraph α ≃a canonicalGraph β → α = β
+  ∀ α ∈ M, ∀ β ∈ M, canonicalGraph α ≃· canonicalGraph β → α = β
 
 namespace canonicalGraph
 
 open PointedGraph
 
-variable {x y : Type u} (f : canonicalGraph x ≃a canonicalGraph y) (a b : trcl {x})
+variable {x y : Type u} (f : canonicalGraph x ≃· canonicalGraph y) (a b : trcl {x})
 
 @[classical] lemma p_eq : (canonicalGraph x).p = top x := rfl
 
@@ -37,7 +36,7 @@ variable {x y : Type u} (f : canonicalGraph x ≃a canonicalGraph y) (a b : trcl
     · simpa only [← mem_def, swap] using fun _ _ => trcl_singleton_trans_of_mem
 
 @[classical] def isoInduce (hy : y ∈ trcl {x}) :
-    canonicalGraph y ≃a (canonicalGraph x).induce (castMem hy) where
+    canonicalGraph y ≃· (canonicalGraph x).induce (castMem hy) where
   toFun := fun z => ⟨
     castMem (trcl_singleton_trans (elements_mem z) hy),
     by simpa [reachable_iff] using elements_mem _
@@ -45,12 +44,12 @@ variable {x y : Type u} (f : canonicalGraph x ≃a canonicalGraph y) (a b : trcl
   invFun := fun ⟨z, hz⟩ => by
     simp only [reachable_iff, elements_cast] at hz
     exact castMem hz
-  map_point' := by simp [canonicalGraph, induce, top]
+  map_point' := by simp +instances [induce, p_eq, top]
   left_inv := by simp [LeftInverse]
   right_inv := by simp [RightInverse, LeftInverse]
-  map_rel_iff' := by simp [canonicalGraph, induce]
+  map_rel_iff' := by simp +instances [induce, canonicalGraph]
 
-@[classical] def isoInduceElement : canonicalGraph ↑a ≃a (canonicalGraph x).induce a := by
+@[classical] def isoInduceElement : canonicalGraph ↑a ≃· (canonicalGraph x).induce a := by
   convert isoInduce (elements_mem a) <;> simp
 
 @[classical] def move (a : x) : y := by
@@ -62,20 +61,20 @@ variable {x y : Type u} (f : canonicalGraph x ≃a canonicalGraph y) (a b : trcl
     simp [canonicalGraph, top, a', moveSub, elements_mem]
   exact castMem this
 
-@[classical] def moveIso (a : x) : canonicalGraph ↑a ≃a canonicalGraph ↑(move f a) :=
+@[classical] def moveIso (a : x) : canonicalGraph ↑a ≃· canonicalGraph ↑(move f a) :=
   let a' := moveSub sub_trcl_singleton a
   calc
-    _ ≃a canonicalGraph ↑a' := by
+    _ ≃· canonicalGraph ↑a' := by
       convert PointedGraphIso.refl (G := canonicalGraph ↑a)
       · simp [a']
       · congr 1; simp [a']
-    _ ≃a (canonicalGraph x).induce a' := by
+    _ ≃· (canonicalGraph x).induce a' := by
       convert isoInduce (elements_mem _) <;> simp
-    _ ≃a (canonicalGraph y).induce (f a') := by
+    _ ≃· (canonicalGraph y).induce (f a') := by
       apply induceIso
-    _ ≃a canonicalGraph ↑(f a') := by
+    _ ≃· canonicalGraph ↑(f a') := by
       convert isoInduce (elements_mem _) |>.symm <;> simp
-    _ ≃a _ := by
+    _ ≃· _ := by
       convert PointedGraphIso.refl (G := canonicalGraph ↑(f a'))
       · simp [move, a']
       · congr 1; simp [move, a']
@@ -88,9 +87,9 @@ variable {x y : Type u} (f : canonicalGraph x ≃a canonicalGraph y) (a b : trcl
   ext a
   change f a = a
   have := calc
-    _ ≃a _ := isoInduceElement a
-    _ ≃a _ := induceIso f a
-    _ ≃a _ := isoInduceElement (f a) |>.symm
+    _ ≃· _ := isoInduceElement a
+    _ ≃· _ := induceIso f a
+    _ ≃· _ := isoInduceElement (f a) |>.symm
   exact (elements_inj <| hfafa
     _ (mem_transitive htrans hx (elements_mem a))
     _ (mem_transitive htrans hx (elements_mem (f a))) this) |>.symm
@@ -115,7 +114,7 @@ open canonicalGraph in
   S : Set (Sigma PointedGraph.{u})
   equiv : α ≃ S
   all_rigid : S ⊆ {G | G.2.Rigid}
-  not_isomorphic : S.Pairwise fun G H => IsEmpty (G.2 ≃a H.2)
+  not_isomorphic : S.Pairwise fun G H => IsEmpty (G.2 ≃· H.2)
 
 @[classical] instance instHasEnoughPointedGraph
     {M : Set (Type u)} (hfafa : FAFA₂On M) (htrans : TransitiveClass M) {α} (hα : α ∈ M) :
@@ -260,10 +259,10 @@ end ImplicitArgument
     rename_i x y a b hab
     exact hab.symm
   loopless := by
-    intro x hx
+    refine ⟨fun x hx => ?_⟩
     cases hx
     rename_i x y a ha
-    exact (graph (G _ _)).loopless _ ha
+    exact (graph (G _ _)).loopless.irrefl _ ha
 
 end ColoredGraph
 
@@ -578,22 +577,26 @@ variable {α β γ : Type u} {C : Type v} [HasEnoughRCPG C]
       let f' := φ |>.trans f |>.trans φ.symm
       let g' := φ |>.trans g |>.trans φ.symm
       have := (rcpgOfColor (G x y)).is_rigid.allEq ⟨f', ?_⟩ ⟨g', ?_⟩
-      · apply_fun (fun e => φ.symm |>.trans e.toRelIso |>.trans φ) at this
-        simp only [f', g', RelIso.ext_iff, RelIso.trans_apply, RelIso.apply_symm_apply] at this
-        ext p : 2
-        exact this p
-      · rw [← point]
+      on_goal 2 =>
+        rw [← point]
         apply_fun φ
-        simp [f', φ, graphIso_map_point, hf]
-      · rw [← point]
+        erw [RelIso.apply_symm_apply]
+        simp [hf, φ, graphIso_map_point]
+      on_goal 2 =>
+        rw [← point]
         apply_fun φ
-        simp [g', φ, graphIso_map_point, hg]
+        erw [RelIso.apply_symm_apply]
+        simp [hg, φ, graphIso_map_point]
+      replace this := congr_arg (fun e => φ.symm |>.trans e.toRelIso |>.trans φ) this
+      simp only [f', g', RelIso.ext_iff, RelIso.trans_apply, RelIso.apply_symm_apply] at this
+      ext p : 2
+      exact this p
     is_connected := (G.graphIso x y).connected_iff.mp (graph_connected _) }
 
 @[classical] def rcpgOfColorIso : rcpgOfColor (G x y) ≃p G.colorRCPG x y :=
   { G.graphIso x y with
     map_point' := by
-      rw [← point, graphIso_map_point]
+      erw [← point, graphIso_map_point]
       rfl }
 
 @[classical] lemma reachable_x : G.elimColor.Reachable (.o x₀) (.o x) := ⟨
@@ -698,7 +701,11 @@ variable {α β γ : Type u} {C : Type v} [HasEnoughRCPG C]
   conv_lhs => rw [show .p x y = f.symm (f (.p x y)) by simp]
   rw [← f.symm.map_walk.exists_congr_right]
   congr! 2 with w
-  simp [Iso.map_walk]
+  simp only [Iso.map_walk, RelIso.symm_symm, RelEmbedding.coe_toRelHom,
+    RelIso.coe_toRelEmbedding, Equiv.coe_fn_mk]
+  erw [Walk.support_map]
+  simp only [RelEmbedding.coe_toRelHom, RelIso.coe_toRelEmbedding, List.mem_map,
+    forall_exists_index, and_imp, forall_apply_eq_imp_iff₂]
   congr! 2 with q
   rw [← iso_c]
 
@@ -744,7 +751,7 @@ variable {α β γ : Type u} {C : Type v} [HasEnoughRCPG C]
   simp only [eqRec_eq_cast]
   apply eq_of_heq
   apply HEq.trans (b := (mapOriginal_colorRCPG (toColoredGraphIso f).toElimColorIso x y p).1) .rfl
-  congr 2 <;> try simp [funext_iff, hmap]
+  congr 2 <;> try simp [hmap]
   all_goals rw [hmap]
 
 @[classical] lemma eq_l_iff : p = .l x y u ↔ p.Is_l ∧ G.elimColor.Adj p (.c x y u) := by
@@ -758,7 +765,8 @@ variable {α β γ : Type u} {C : Type v} [HasEnoughRCPG C]
     .l (mapOriginal f x) (mapOriginal f y) ((toColoredGraphIso f).map_color ▸ u) := by
   rw [eq_l_iff, ← iso_l, ← map_c, f.map_adj_iff, ← eq_l_iff]
 
-@[classical] lemma toColoredGraphIso_injective : Injective (toColoredGraphIso (G := G) (H := H)) := by
+@[classical] lemma toColoredGraphIso_injective :
+    Injective (toColoredGraphIso (G := G) (H := H)) := by
   intro f g eq
   ext p
   simp only [toColoredGraphIso, mapOriginalEquiv, ColoredGraphIso.mk.injEq, Equiv.mk.injEq] at eq
@@ -767,8 +775,14 @@ variable {α β γ : Type u} {C : Type v} [HasEnoughRCPG C]
   | o x => simp only [mapOriginal_spec, eq]
   | a x y => simp only [map_a, eq]
   | b x y => simp only [map_b, eq]
-  | c x y u => simp only [map_c]; congr 1 <;> simp [eq]
-  | l x y u => simp only [map_l]; congr 1 <;> simp [eq]
+  | c x y u =>
+    simp only [map_c]
+    congr 1 <;> try simp [eq]
+    erw [heq_eqRec_iff_heq, eqRec_heq_iff_heq]
+  | l x y u =>
+    simp only [map_l]
+    congr 1 <;> try simp [eq]
+    erw [heq_eqRec_iff_heq, eqRec_heq_iff_heq]
 
 @[classical] lemma toColoredGraphIso_surjective : Surjective (toColoredGraphIso (G := G) (H := H)) := by
   refine fun f => ⟨f.toElimColorIso, ?_⟩
@@ -805,7 +819,7 @@ open Classical in
   fun x y => (G.r x y : Bool)
 
 @[classical] def coloredGraphToPointedGraphIso :
-    {f : G.toColoredGraph ≃c H.toColoredGraph // f G.p = H.p} ↪ G ≃a H where
+    {f : G.toColoredGraph ≃c H.toColoredGraph // f G.p = H.p} ↪ G ≃· H where
   toFun := fun ⟨f, hf⟩ =>
     { f with
       map_rel_iff' := @fun x y => by simpa [PointedGraph.toColoredGraph] using f.map_color
@@ -815,7 +829,8 @@ open Classical in
     simpa [ColoredGraphIso.ext_iff, Equiv.ext_iff] using eq
 
 @[classical] def elimColorToPointedGraphIso :
-    {f : G.toColoredGraph.elimColor ≃g H.toColoredGraph.elimColor // f (.o G.p) = .o H.p} ↪ G ≃a H where
+    {f : G.toColoredGraph.elimColor ≃g H.toColoredGraph.elimColor // f (.o G.p) = .o H.p} ↪
+    G ≃· H where
   toFun := fun ⟨f, hf⟩ =>
     coloredGraphToPointedGraphIso
     ⟨toColoredGraphIso f, by rwa [mapOriginal_spec, RCPGPoints.o.injEq] at hf⟩
@@ -830,7 +845,7 @@ open Classical in
     is_connected := (toColoredGraph G).elimColor_connected (ne := ⟨G.p⟩) }
 
 @[classical] def rcpgToPointedGraphIso
-    (hG : G.Rigid) (hH : H.Rigid) (f : G.toRCPG hG ≃p H.toRCPG hH) : G ≃a H :=
+    (hG : G.Rigid) (hH : H.Rigid) (f : G.toRCPG hG ≃p H.toRCPG hH) : G ≃· H :=
   elimColorToPointedGraphIso ⟨f.toRelIso, f.map_point'⟩
 
 @[classical] instance {α} [A : HasEnoughPointedGraph α] : HasEnoughRCPG α :=
@@ -903,8 +918,8 @@ end PointedGraph
 
 def constructOrdinal (α : Ordinal.{u}) : WF.{u} := by
   refine Ordinal.lt_wf.fix (C := fun _ => WF.{u}) (fun β f =>
-    ⟨ collect fun (x : β.toType) =>
-        match (Ordinal.enumIsoToType _).symm x with
+    ⟨ collect fun (x : β.ToType) =>
+        match Ordinal.ToType.mk.symm x with
         | ⟨x, hx⟩ => (f x hx).1,
       ?_ ⟩) α
   refine Acc.intro _ ?_
@@ -916,7 +931,7 @@ lemma constructOrdinal_mem_of_lt {α β : Ordinal.{u}} (lt : α < β) :
   conv_lhs => simp [constructOrdinal]
   rw [WellFounded.fix_eq _ _]
   simp only [mem_class_iff, mem_collect]
-  refine ⟨Ordinal.enumIsoToType β ⟨α, lt⟩, ?_⟩
+  refine ⟨Ordinal.ToType.mk ⟨α, lt⟩, ?_⟩
   rw [OrderIso.symm_apply_apply]
   rfl
 
@@ -928,7 +943,7 @@ lemma constructOrdinal_inj : Injective constructOrdinal := by
   · exact fun h => not_mem_self_wf (h ▸ constructOrdinal_mem_of_lt this)
   · exact fun h => not_mem_self_wf (h ▸ constructOrdinal_mem_of_lt this)
 
-def constructOrdinal_iso (α : Ordinal.{u}) : constructOrdinal α ≃ α.toType := by
+def constructOrdinal_iso (α : Ordinal.{u}) : constructOrdinal α ≃ α.ToType := by
   simp [constructOrdinal]
   rw [WellFounded.fix_eq]
   conv => enter [1, 1, 1, 1, x, 1, 0, y, x]; change constructOrdinal y
@@ -963,7 +978,7 @@ def constructOrdinal_iso (α : Ordinal.{u}) : constructOrdinal α ≃ α.toType 
 theorem choice_implies_frucht : Frucht.{u} :=
   frucht_from_all_cardinals_fafa₂ fafa₂_on_wf transitive_wf <| by
     intro α
-    obtain ⟨e⟩ : Nonempty ((#α).ord.toType ≃ α) := by
+    obtain ⟨e⟩ : Nonempty ((#α).ord.ToType ≃ α) := by
       rw [← Cardinal.eq]
       apply mk_ord_toType
     exact ⟨constructOrdinal (#α).ord, by simp, ⟨((constructOrdinal_iso _).trans e).symm⟩⟩

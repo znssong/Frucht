@@ -137,7 +137,8 @@ initialize
       choiceFreeReplacementExtension.add (name, ⟨decl, some perm⟩)
   }
 
-def mkChoiceFreeName (name : Name) := .mkNum `_choiceFree 0 ++ name
+def mkChoiceFreeName (name : Name) := `_choiceFree ++ name
+def originalName := (Name.replacePrefix · `_choiceFree .anonymous)
 
 def replaceExpr (e : Expr) : CoreM Expr :=
   Core.transform e fun e => do
@@ -150,7 +151,7 @@ def replaceExpr (e : Expr) : CoreM Expr :=
         (List.range perm.size).map fun i => us[perm[i]!]!
     | _ => return .continue
 
-def replaceDeclaration (e : Name) (replaceType : Bool := True) : CoreM Unit := do
+def replaceDeclaration (e : Name) (replaceType : Bool := true) : CoreM Unit := do
   if (choiceFreeReplacementExtension.getState (← getEnv)).contains e then return
   let replaceExpr' (e : Expr) : CoreM Expr :=
     if replaceType then replaceExpr e else return e
@@ -197,7 +198,7 @@ partial def collect (c : Name) (stopSet : HashSet Name) : M Unit := do
     if stopSet.contains c then
       modify fun s => { s with axioms := s.axioms.insert c }
     else
-      match (← getEnv).find? c with
+      match (← getEnv).checked.get.find? c with
       | some (ConstantInfo.axiomInfo v)  =>
         collectExpr v.type
         modify fun s => { s with axioms := s.axioms.insert c }
@@ -227,10 +228,8 @@ def allowedAxioms : HashSet Name := {
 }
 
 def showDependencyGraph (dependencies : Graph Name) : Format :=
-  let removePrefix (name : Name) : Name :=
-    name.mapPrefix (fun x => if x == .mkNum `_choiceFree 0 then some .anonymous else none)
   let showName (name : Name) : Format :=
-    .text (removePrefix name).toString
+    .text (originalName name).toString
   let showNameSet (key : Name) (set : HashSet Name) : Format := .nest 2 (
     f!"{showName key} is used by:" ++ .line ++
     .nest 1 ("[" ++ Format.join ((set.toList.map showName).intersperse ("," ++ .line)) ++ "]")
@@ -239,22 +238,25 @@ def showDependencyGraph (dependencies : Graph Name) : Format :=
   Format.join <| List.intersperse .line <|
     (order.toList.filterMap fun name => dependencies[name]?.map (showNameSet name))
 
-def registerClassical (replaceType : Bool) (decl : Name) (stx : Syntax) (kind : AttributeKind) : AttrM Unit := do
+def registerClassical (strict : Bool) (decl : Name) (stx : Syntax) (kind : AttributeKind) :
+    AttrM Unit := do
   Attribute.Builtin.ensureNoArgs stx
   unless kind == AttributeKind.global do
     throwError "invalid attribute 'classical', must be global"
   let replaced := (choiceFreeReplacementExtension.getState (← getEnv)).keys.foldl
     Std.HashSet.insert {}
   let cached := cachedChoiceFreeExtension.getState (← getEnv)
-  let (_, dependencies) ← CollectAxioms.collectAxioms decl (allowedAxioms ∪ replaced ∪ cached)
+  let (_, dependencies) ← CollectAxioms.collectAxioms decl
+    (allowedAxioms ∪ replaced ∪ cached ∪ HashSet.ofArray (cached.toArray.map originalName))
   let dependencyOrder := dependencies.reverseReachableDerived replaced |>.topologicalOrder
   for defn in dependencyOrder do
-    replaceDeclaration defn (replaceType || defn != decl)
+    replaceDeclaration defn (!strict || defn != decl)
   let ⟨decl, _⟩ ← choiceFreeAlternative decl
   let (usedAxioms, dependencies) ← CollectAxioms.collectAxioms decl (allowedAxioms ∪ cached)
   let unallowedAxioms := usedAxioms.filter
     fun x => !(allowedAxioms.contains x || cached.contains x)
-  let dependencies := dependencies.reverseReachableDerived unallowedAxioms
+  if strict && usedAxioms.contains ``sorryAx then
+    throwError f!"Strict mode doesn't allow `sorry`"
   if !unallowedAxioms.isEmpty then
     throwError (
       f!"invalid attribute 'classical', the definition used axioms {unallowedAxioms.toList}\n" ++
@@ -270,7 +272,7 @@ initialize
     name            := `classical
     descr           := s!"Ensure that the definition is in the classical ZF set theory"
     applicationTime := .afterCompilation
-    add             := registerClassical true
+    add             := registerClassical false
   }
 
 initialize
@@ -278,7 +280,7 @@ initialize
     name            := `classical!
     descr           := s!"Ensure that the definition is in the classical ZF set theory, but not replacing the type of the theorem"
     applicationTime := .afterCompilation
-    add             := registerClassical false
+    add             := registerClassical true
   }
 
 section ElimChoiceTactic
@@ -343,7 +345,20 @@ where
     | (.letE name type value :: xs, e) => .letE name type value (reverts' (xs, e)) false
     | ([], e) => e
 
-def appBVars (e : Expr) (n : Nat) := (Array.range n).foldr (fun i e => mkApp e (.bvar i)) e
+def appBVars (e : Expr) (ctx : Binders) :=
+  (Array.range ctx.size).foldr (fun i e =>
+    match ctx[i]! with
+    | .forallE .. => mkApp e (.bvar i)
+    | _ => e) e
+
+def introsP (mvarId : MVarId) (maxVars : Nat) : MetaM (Array FVarId × MVarId) := do
+  let type ← mvarId.getType
+  let type ← instantiateMVars type
+  let n := getIntrosSize type
+  if n == 0 then
+    return (#[], mvarId)
+  else
+    mvarId.introNP (min n maxVars)
 
 structure ElimChoiceState where
   goals : Array MVarId := #[]
@@ -377,14 +392,14 @@ partial def elimChoice (ctx : Binders) (e : Expr) : M Expr :=
               |>.instantiateRevRange 0 i args
             let holeType ← dsimp' (reverts (ctx, holeType))
             for (type, mvar) in (← get).mvars do
-              if ← isDefEq type holeType then return appBVars mvar ctx.size
+              if ← isDefEq type holeType then return appBVars mvar ctx
             let mvar ← mkFreshExprMVar holeType
-            let (_, newMVar) ← mvar.mvarId!.introNP ctx.size
+            let (_, newMVar) ← introsP mvar.mvarId! ctx.size
             modify fun s => { s with
               mvars := s.mvars.insert holeType mvar
               goals := s.goals.push newMVar
             }
-            return appBVars mvar ctx.size
+            return appBVars mvar ctx
           for i in pos do
             if -args.size ≤ i ∧ i < 0 then args := args.eraseIdx! (i.natAbs - 1)
             else if i ≤ args.size then args := args.insertIdx! i.natAbs (← getMVar i.natAbs)
@@ -432,7 +447,8 @@ elab_rules : tactic
         for priv in priv_of_ns do
           ids := ids.push (mkPrivateName' module.getId priv.getId)
     let old ← whnf old
-    let old ← deltaExpand old (fun name => ids.any (fun id => id.isPrefixOf name))
+    let old ← deltaExpand old
+      fun name => ids.any (fun id => id.isPrefixOf (privateToUserName name))
     let old ← dsimp' old
     let (new, result) ← (elimChoice {} old).run {
       usings := ← (usings.getD #[]).mapM resolveGlobalConstNoOverload
