@@ -252,7 +252,9 @@ def registerClassical (strict : Bool) (decl : Name) (stx : Syntax) (kind : Attri
   for defn in dependencyOrder do
     replaceDeclaration defn (!strict || defn != decl)
   let ⟨decl, _⟩ ← choiceFreeAlternative decl
-  let (usedAxioms, dependencies) ← CollectAxioms.collectAxioms decl (allowedAxioms ∪ cached)
+  let (usedAxioms, dependencies) ←
+    CollectAxioms.collectAxioms decl <|
+    if strict then allowedAxioms else allowedAxioms ∪ cached
   let unallowedAxioms := usedAxioms.filter
     fun x => !(allowedAxioms.contains x || cached.contains x)
   if strict && usedAxioms.contains ``sorryAx then
