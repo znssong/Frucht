@@ -884,12 +884,12 @@ end PointedGraph
     {M : Set (Type u)} (hfafa : FAFA₂On M) (htrans : TransitiveClass M)
     (all_cardinals_fafa : ∀ α : Type u, ∃ β ∈ M, Nonempty (α ≃ β)) :
     Frucht.{u} := by
-  intro α _
-  obtain ⟨β, hβ, ⟨iso⟩⟩ := all_cardinals_fafa α
-  haveI := instHasEnoughPointedGraph hfafa htrans hβ
+  intro Γ _
+  obtain ⟨Δ, hΔ, ⟨iso⟩⟩ := all_cardinals_fafa Γ
+  haveI := instHasEnoughPointedGraph hfafa htrans hΔ
   haveI := instHasEnoughPointedGraphFromEquiv iso.symm
-  refine ⟨_, (cayley α).elimColor, ⟨?_⟩⟩
-  exact ColoredGraph.toColoredGraphIsoIso.trans (cayleyIso α)
+  refine ⟨_, (cayley Γ).elimColor, ⟨?_⟩⟩
+  exact ColoredGraph.toColoredGraphIsoIso.trans (cayleyIso Γ)
 
 @[classical] lemma fafa₂_iff : FAFA₂.{u} ↔ FAFA₂On.{u} Set.univ := by
   simp only [FAFA₂, FAFA₂On]

@@ -292,8 +292,8 @@ instance : Group (G ≃c G) where
 
 end ColoredGraphIso
 
-def cayley (G : Type*) [Group G] : ColoredGraph G G := fun a b => a⁻¹ * b
-def cayleyIso (G : Type*) [Group G] : (cayley G ≃c cayley G) ≃* G where
+def cayley (Γ : Type*) [Group Γ] : ColoredGraph Γ Γ := fun a b => a⁻¹ * b
+def cayleyIso (Γ : Type*) [Group Γ] : (cayley Γ ≃c cayley Γ) ≃* Γ where
   toFun := fun x => x 1
   invFun := fun x => {
     toFun := fun y => x * y

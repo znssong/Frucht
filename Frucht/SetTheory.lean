@@ -358,4 +358,4 @@ lemma not_mem_self_wf {x : WF.{u}} : x ∉ x := by
 @[classical] def Foundation := ∀ x : Type u, (∃ y, y ∈ x) → ∃ y, y ∈ x ∧ ∀ z ∈ x, z ∉ y
 
 @[classical] def Frucht :=
-  ∀ (H : Type u) [Group H], ∃ V : Type u, ∃ G : SimpleGraph V, Nonempty ((G ≃g G) ≃* H)
+  ∀ (Γ : Type u) [Group Γ], ∃ V : Type u, ∃ G : SimpleGraph V, Nonempty ((G ≃g G) ≃* Γ)
