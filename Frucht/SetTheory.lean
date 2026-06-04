@@ -352,7 +352,7 @@ lemma not_mem_self_wf {x : WF.{u}} : x ∉ x := by
 @[classical] def FAFA₂ := ∀ (x y X Y : Type u),
   (hX : IsTransitiveClosure x X) → (hY : IsTransitiveClosure y Y) →
   (f : InvImage (· ∈ ·) ((↑) : X → Type u) ≃r InvImage (· ∈ ·) ((↑) : Y → Type u)) →
-  (x' : X) → (hx : ↑x' = x) → (y' : Y) → (hx : ↑y' = y) →
+  (x' : X) → (hx : ↑x' = x) → (y' : Y) → (hy : ↑y' = y) →
   f x' = y' → x = y
 
 @[classical] def Foundation := ∀ x : Type u, (∃ y, y ∈ x) → ∃ y, y ∈ x ∧ ∀ z ∈ x, z ∉ y
